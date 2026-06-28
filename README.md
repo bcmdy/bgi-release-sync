@@ -12,7 +12,7 @@
 - Release tag 使用识别出的版本号，例如 `v0.61.3+lcb.22.4-OnLine-test22`，Release 资产为 `BetterGI_v0.61.3+lcb.22.4-OnLine-test22.7z`。
 - `state/latest.json` 只会在 Release 和资产发布成功后更新，用于避免重复发布同一个上游构建。
 
-GitHub Actions 的定时任务使用 UTC 时间；当前配置为每小时第 43 分钟触发，以避开整点高峰导致的延迟或丢弃。
+GitHub Actions 的定时任务使用 UTC 时间；当前配置为每小时第 13 和 43 分钟尝试触发，以降低 GitHub schedule 延迟或丢弃的影响。同步脚本是幂等的，重复运行不会重复发布同一个上游构建。
 
 ## 本地调试
 

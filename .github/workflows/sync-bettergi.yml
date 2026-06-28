@@ -2,8 +2,9 @@ name: Sync BetterGI Release
 
 on:
   schedule:
-    # GitHub may delay or drop scheduled runs during the top-of-hour peak.
-    - cron: "43 * * * *"
+    # GitHub scheduled events are best-effort and may be delayed or dropped.
+    # Try twice per hour; the sync script is idempotent and skips published runs.
+    - cron: "13,43 * * * *"
   workflow_dispatch:
 
 permissions:
