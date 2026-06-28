@@ -1,0 +1,10 @@
+{
+  "upstream_owner": "kaedelcb",
+  "upstream_repo": "better-genshin-impact",
+  "workflow": "publish.yml",
+  "artifact_name": "BetterGI_7z",
+  "last_published_version": null,
+  "last_published_run_id": null,
+  "last_published_artifact_id": null,
+  "last_published_at": null
+}
