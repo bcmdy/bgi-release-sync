@@ -147,37 +147,79 @@ function Invoke-Gh {
     return $text
 }
 
-function Get-GitHubToken {
-    foreach ($name in @("GH_TOKEN", "GITHUB_TOKEN")) {
-        $value = [Environment]::GetEnvironmentVariable($name)
-        if (-not [string]::IsNullOrWhiteSpace($value)) {
-            return $value
-        }
-    }
-
-    return $null
-}
-
 function Download-Artifact {
     param(
         [string]$Owner,
         [string]$Repo,
-        [long]$ArtifactId,
+        [long]$RunId,
+        [string]$ArtifactName,
         [string]$OutFile
     )
 
-    $token = Get-GitHubToken
-    $headers = @{
-        Accept                 = "application/vnd.github+json"
-        "X-GitHub-Api-Version" = "2022-11-28"
+    $encodedArtifactName = [System.Uri]::EscapeDataString($ArtifactName)
+    $runUrl = "https://nightly.link/$Owner/$Repo/actions/runs/$RunId"
+    $directZipUrl = "$runUrl/$encodedArtifactName.zip"
+
+    Write-Log "Downloading artifact from nightly.link: $directZipUrl"
+    try {
+        Invoke-WebRequest -Uri $directZipUrl -OutFile $OutFile -MaximumRedirection 10
+        if (Test-ZipFile -Path $OutFile) {
+            return
+        }
+
+        Write-Log "Direct nightly.link artifact URL did not return a zip file. Trying run page link discovery."
+        Remove-Item -LiteralPath $OutFile -Force
     }
-    if ($token) {
-        $headers["Authorization"] = "Bearer $token"
+    catch {
+        Write-Log "Direct nightly.link artifact URL failed. Trying run page link discovery."
+        if (Test-Path -LiteralPath $OutFile) {
+            Remove-Item -LiteralPath $OutFile -Force
+        }
     }
 
-    $uri = "https://api.github.com/repos/$Owner/$Repo/actions/artifacts/$ArtifactId/zip"
-    Write-Log "Downloading artifact $ArtifactId to $OutFile"
-    Invoke-WebRequest -Uri $uri -Headers $headers -OutFile $OutFile -MaximumRedirection 10
+    $runPage = Invoke-WebRequest -Uri $runUrl -UseBasicParsing -MaximumRedirection 10
+    $links = [regex]::Matches($runPage.Content, 'href="([^"]+\.zip(?:\?[^"]*)?)"') | ForEach-Object {
+        [System.Net.WebUtility]::HtmlDecode($_.Groups[1].Value)
+    }
+
+    $artifactLink = @($links | Where-Object {
+            $_ -match "/$([regex]::Escape($ArtifactName))\.zip(?:\?|$)"
+        } | Select-Object -First 1)
+
+    if ($artifactLink.Count -eq 0) {
+        throw "Could not find $ArtifactName.zip on nightly.link run page: $runUrl"
+    }
+
+    $downloadUrl = $artifactLink[0]
+    if ($downloadUrl.StartsWith("/")) {
+        $downloadUrl = "https://nightly.link$downloadUrl"
+    }
+
+    Write-Log "Downloading artifact from discovered nightly.link URL: $downloadUrl"
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $OutFile -MaximumRedirection 10
+}
+
+function Test-ZipFile {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
+    }
+
+    $file = Get-Item -LiteralPath $Path
+    if ($file.Length -lt 4) {
+        return $false
+    }
+
+    $stream = [System.IO.File]::OpenRead($file.FullName)
+    try {
+        $first = $stream.ReadByte()
+        $second = $stream.ReadByte()
+        return $first -eq 0x50 -and $second -eq 0x4B
+    }
+    finally {
+        $stream.Dispose()
+    }
 }
 
 function Get-AssetNames {
@@ -283,10 +325,10 @@ if (Test-Path -LiteralPath $assetPath) {
     Remove-Item -LiteralPath $assetPath -Force
 }
 
-Download-Artifact -Owner $upstreamOwner -Repo $upstreamRepo -ArtifactId $artifactId -OutFile $assetPath
+Download-Artifact -Owner $upstreamOwner -Repo $upstreamRepo -RunId $runId -ArtifactName $artifactName -OutFile $assetPath
 
-if (-not (Test-Path -LiteralPath $assetPath) -or ((Get-Item -LiteralPath $assetPath).Length -le 0)) {
-    throw "Downloaded artifact is missing or empty: $assetPath"
+if (-not (Test-ZipFile -Path $assetPath)) {
+    throw "Downloaded artifact is missing, empty, or not a zip file: $assetPath"
 }
 
 $releaseNotes = @"
@@ -294,6 +336,7 @@ Synced from upstream BetterGI workflow.
 
 - Upstream repository: https://github.com/$upstreamSlug
 - Workflow run: $($selectedRun.html_url)
+- Artifact download: https://nightly.link/$upstreamSlug/actions/runs/$runId/$artifactName.zip
 - Artifact ID: $artifactId
 - Upstream commit: $($selectedRun.head_sha)
 - Synced at: $syncedAt

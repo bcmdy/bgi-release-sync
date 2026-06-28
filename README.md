@@ -7,7 +7,7 @@
 ## 实现方式
 
 - `.github/workflows/sync-bettergi.yml` 每小时运行一次，也支持手动触发。
-- `scripts/sync-bettergi.ps1` 使用 GitHub CLI 查询上游 workflow、下载 `BetterGI_7z` Artifact、创建或补全本仓库 Release。
+- `scripts/sync-bettergi.ps1` 使用 GitHub CLI 查询上游 workflow，并通过 nightly.link 的指定 run 链接下载 `BetterGI_7z` Artifact，随后创建或补全本仓库 Release。
 - `state/latest.json` 只会在 Release 和资产发布成功后更新，用于避免重复发布同一个上游构建。
 
 ## 本地调试
@@ -19,5 +19,10 @@ gh auth login
 pwsh ./scripts/sync-bettergi.ps1 -TargetRepository owner/repo
 ```
 
-在 GitHub Actions 中会自动使用仓库的 `GITHUB_TOKEN`，无需额外配置。
-如遇到上游 API 限流或 Artifact 访问权限问题，可额外配置仓库 secret `GH_TOKEN`。
+在 GitHub Actions 中会自动使用仓库的 `GITHUB_TOKEN`，无需额外配置。Artifact 下载不走 GitHub Artifact ZIP API，而是使用类似下面的 nightly.link run 链接：
+
+```text
+https://nightly.link/kaedelcb/better-genshin-impact/actions/runs/{run_id}/BetterGI_7z.zip
+```
+
+不使用 nightly.link 的 workflow/latest 链接，避免 `publish.yml` 路径无法获取的问题。如遇到上游元数据 API 限流，可额外配置仓库 secret `GH_TOKEN`。

@@ -56,11 +56,13 @@ GET /repos/kaedelcb/better-genshin-impact/actions/workflows/publish.yml/runs?sta
 GET /repos/kaedelcb/better-genshin-impact/actions/runs/{run_id}/artifacts
 ```
 
-找到名称为 `BetterGI_7z` 的 Artifact 后下载：
+找到名称为 `BetterGI_7z` 的 Artifact 后，优先通过 nightly.link 的指定 run 链接下载，避免直接调用 GitHub Artifact ZIP API 时遇到限流或登录权限问题：
 
 ```text
-GET /repos/kaedelcb/better-genshin-impact/actions/artifacts/{artifact_id}/zip
+https://nightly.link/kaedelcb/better-genshin-impact/actions/runs/{run_id}/BetterGI_7z.zip
 ```
+
+实现中不依赖 nightly.link 的 workflow/latest 链接，例如 `https://nightly.link/kaedelcb/better-genshin-impact/actions/workflows/publish.yml`，因为该路径可能无法稳定获取目标产物。
 
 下载文件建议命名为：
 
@@ -210,7 +212,7 @@ bgi-release-sync/
 
 1. `gh api` 查询上游 workflow runs。
 2. `gh api` 查询目标 run 的 artifacts。
-3. `gh run download` 或 `gh api` 下载 Artifact。
+3. 使用 nightly.link 的指定 run 链接下载 Artifact，避免直接请求 GitHub Artifact ZIP API。
 4. `gh release create` 创建 Release。
 5. `gh release upload` 上传资产。
 6. 使用脚本更新 `state/latest.json`。
@@ -276,4 +278,3 @@ concurrency:
 3. 支持解析 BetterGI 真实版本号并使用语义化 tag。
 4. 支持在发布失败时发送通知。
 5. 支持校验 Artifact 解压后的文件结构或哈希值。
-
