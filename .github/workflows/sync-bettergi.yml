@@ -2,7 +2,8 @@ name: Sync BetterGI Release
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    # GitHub may delay or drop scheduled runs during the top-of-hour peak.
+    - cron: "43 * * * *"
   workflow_dispatch:
 
 permissions:
