@@ -28,3 +28,30 @@ https://nightly.link/kaedelcb/better-genshin-impact/actions/runs/{run_id}/Better
 ```
 
 不使用 nightly.link 的 workflow/latest 链接，避免 `publish.yml` 路径无法获取的问题。如遇到上游元数据 API 限流，可额外配置仓库 secret `GH_TOKEN`。
+
+## Ubuntu 服务器下载最新发布包
+
+服务器只需要安装 `bash`、`curl` 和 `python3`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bcmdy/bgi-release-sync/main/scripts/download-latest-bettergi.sh -o download-latest-bettergi.sh
+chmod +x download-latest-bettergi.sh
+./download-latest-bettergi.sh -d /opt/bettergi
+```
+
+脚本会读取 `https://github.com/bcmdy/bgi-release-sync/releases.atom` 的第一条记录获取最新版本号，并按 `BetterGI_{tag}.7z` 规则下载对应 Release 资产到指定目录。若服务器无法直连 GitHub，脚本会按内置镜像列表逐个测试 `releases.atom` 和发布资产下载地址，选择第一个可用镜像下载。资产镜像已包含 `https://gh.sevencdn.com/https://github.com`。
+
+可选参数示例：
+
+```bash
+BGI_TEST_TIMEOUT=8 ./download-latest-bettergi.sh -d /opt/bettergi --force
+```
+
+如果服务器访问默认 Atom 地址不稳定，可以指定一个你测试可用的 Atom 镜像；也可以分别覆盖 Atom feed 和资产下载镜像列表：
+
+```bash
+BGI_ATOM_URL="https://你的镜像/..." \
+BGI_FEED_MIRRORS="https://gh.jasonzeng.dev/https://github.com https://github.com" \
+BGI_ASSET_MIRRORS="https://gh.sevencdn.com/https://github.com https://gh.jasonzeng.dev/https://github.com" \
+./download-latest-bettergi.sh -d /opt/bettergi
+```
