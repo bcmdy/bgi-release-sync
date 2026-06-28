@@ -222,6 +222,43 @@ function Test-ZipFile {
     }
 }
 
+function Get-BetterGiPackageFromArtifact {
+    param(
+        [string]$ZipPath,
+        [string]$ExtractDir
+    )
+
+    if (Test-Path -LiteralPath $ExtractDir) {
+        Remove-Item -LiteralPath $ExtractDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path $ExtractDir | Out-Null
+
+    Write-Log "Extracting artifact zip to $ExtractDir"
+    Expand-Archive -LiteralPath $ZipPath -DestinationPath $ExtractDir -Force
+
+    $packages = @(Get-ChildItem -LiteralPath $ExtractDir -Recurse -File -Filter "BetterGI_*.7z" | Sort-Object FullName)
+    if ($packages.Count -eq 0) {
+        throw "No BetterGI_*.7z package was found inside artifact zip: $ZipPath"
+    }
+
+    if ($packages.Count -gt 1) {
+        $names = ($packages | ForEach-Object { $_.FullName }) -join ", "
+        throw "Multiple BetterGI packages were found inside artifact zip. Refusing to guess: $names"
+    }
+
+    $package = $packages[0]
+    $match = [regex]::Match($package.Name, '^BetterGI_(?<version>.+)\.7z$')
+    if (-not $match.Success) {
+        throw "Could not parse BetterGI version from package name: $($package.Name)"
+    }
+
+    return [pscustomobject]@{
+        Path    = $package.FullName
+        Name    = $package.Name
+        Version = $match.Groups["version"].Value
+    }
+}
+
 function Get-AssetNames {
     param([object]$Release)
 
@@ -281,10 +318,6 @@ $selectedArtifact = $artifact[0]
 
 $runId = [long]$selectedRun.id
 $artifactId = [long]$selectedArtifact.id
-$version = "upstream-run-$runId"
-$tag = $version
-$assetName = "$artifactName-$version.zip"
-$releaseTitle = "BetterGI build $runId"
 $syncedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 Write-Log "Latest publishable run: $runId"
@@ -294,6 +327,33 @@ if ($state.last_published_run_id -eq $runId) {
     Write-Log "Run $runId is already recorded in $StatePath. Skipping."
     exit 0
 }
+
+if ($selectedArtifact.expired -eq $true) {
+    throw "Artifact $artifactId for run $runId is expired. State was not updated."
+}
+
+New-Item -ItemType Directory -Force -Path $DownloadDir | Out-Null
+$artifactZipPath = Join-Path $DownloadDir "$artifactName-upstream-run-$runId.zip"
+if (Test-Path -LiteralPath $artifactZipPath) {
+    Remove-Item -LiteralPath $artifactZipPath -Force
+}
+
+Download-Artifact -Owner $upstreamOwner -Repo $upstreamRepo -RunId $runId -ArtifactName $artifactName -OutFile $artifactZipPath
+
+if (-not (Test-ZipFile -Path $artifactZipPath)) {
+    throw "Downloaded artifact is missing, empty, or not a zip file: $artifactZipPath"
+}
+
+$extractDir = Join-Path $DownloadDir "$artifactName-upstream-run-$runId"
+$package = Get-BetterGiPackageFromArtifact -ZipPath $artifactZipPath -ExtractDir $extractDir
+$version = $package.Version
+$tag = $version
+$assetName = $package.Name
+$assetPath = $package.Path
+$releaseTitle = "BetterGI $version"
+
+Write-Log "Detected BetterGI version: $version"
+Write-Log "Release asset package: $assetName"
 
 $release = Get-Release -Repository $targetRepository -Tag $tag
 $assetNames = Get-AssetNames -Release $release
@@ -315,22 +375,6 @@ if ($release -and $assetAlreadyUploaded) {
     exit 0
 }
 
-if ($selectedArtifact.expired -eq $true) {
-    throw "Artifact $artifactId for run $runId is expired. State was not updated."
-}
-
-New-Item -ItemType Directory -Force -Path $DownloadDir | Out-Null
-$assetPath = Join-Path $DownloadDir $assetName
-if (Test-Path -LiteralPath $assetPath) {
-    Remove-Item -LiteralPath $assetPath -Force
-}
-
-Download-Artifact -Owner $upstreamOwner -Repo $upstreamRepo -RunId $runId -ArtifactName $artifactName -OutFile $assetPath
-
-if (-not (Test-ZipFile -Path $assetPath)) {
-    throw "Downloaded artifact is missing, empty, or not a zip file: $assetPath"
-}
-
 $releaseNotes = @"
 Synced from upstream BetterGI workflow.
 
@@ -338,6 +382,8 @@ Synced from upstream BetterGI workflow.
 - Workflow run: $($selectedRun.html_url)
 - Artifact download: https://nightly.link/$upstreamSlug/actions/runs/$runId/$artifactName.zip
 - Artifact ID: $artifactId
+- BetterGI version: $version
+- Release asset: $assetName
 - Upstream commit: $($selectedRun.head_sha)
 - Synced at: $syncedAt
 "@

@@ -7,7 +7,9 @@
 ## 实现方式
 
 - `.github/workflows/sync-bettergi.yml` 每小时运行一次，也支持手动触发。
-- `scripts/sync-bettergi.ps1` 使用 GitHub CLI 查询上游 workflow，并通过 nightly.link 的指定 run 链接下载 `BetterGI_7z` Artifact，随后创建或补全本仓库 Release。
+- `scripts/sync-bettergi.ps1` 使用 GitHub CLI 查询上游 workflow，并通过 nightly.link 的指定 run 链接下载 `BetterGI_7z` Artifact。
+- 脚本会解压 `BetterGI_7z.zip`，自动识别其中的 `BetterGI_*.7z` 文件作为发布包，并从文件名提取版本号。
+- Release tag 使用识别出的版本号，例如 `v0.61.3+lcb.22.4-OnLine-test22`，Release 资产为 `BetterGI_v0.61.3+lcb.22.4-OnLine-test22.7z`。
 - `state/latest.json` 只会在 Release 和资产发布成功后更新，用于避免重复发布同一个上游构建。
 
 ## 本地调试

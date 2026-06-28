@@ -16,7 +16,7 @@
 1. 每 1 小时自动检测上游 `publish.yml` 是否存在最新成功运行。
 2. 只处理 `conclusion=success` 且包含 `BetterGI_7z` Artifact 的工作流运行。
 3. 当检测到未发布过的新构建时，自动下载 `BetterGI_7z`。
-4. 将下载到的压缩包作为当前仓库 Release 资产发布。
+4. 解压下载到的 Artifact zip，将其中的 `BetterGI_*.7z` 作为当前仓库 Release 资产发布。
 5. 将已发布版本号或构建标识保存到本地文件。
 6. 支持手动触发检测，方便调试和补发。
 
@@ -70,25 +70,27 @@ https://nightly.link/kaedelcb/better-genshin-impact/actions/runs/{run_id}/Better
 BetterGI_7z-{version}.zip
 ```
 
+下载得到的 Artifact zip 不是最终发布包。系统需要解压该 zip，找到其中唯一的 `BetterGI_*.7z` 文件，并将该 `.7z` 文件作为 Release 资产发布。
+
 若 Artifact 已过期或下载失败，本次任务应失败并输出明确日志，不应更新本地版本状态。
 
 ### 3.4 版本识别
 
 优先版本号来源：
 
-1. 如果 Artifact 名称、运行标题、分支标签、提交信息或产物内部文件可解析出 BetterGI 版本号，则使用实际版本号。
-2. 如果无法稳定解析实际版本号，则使用上游工作流运行 ID 作为构建版本标识。
+1. 如果 Artifact 内部存在形如 `BetterGI_v0.61.3+lcb.22.4-OnLine-test22.7z` 的文件，则从文件名中解析 BetterGI 版本号，例如 `v0.61.3+lcb.22.4-OnLine-test22`。
+2. 如果无法找到或无法解析内部 `BetterGI_*.7z` 发布包，则本次任务失败并保留原状态，避免发布错误资产。
 
-建议 Release tag 格式：
+解析到内部 `.7z` 文件名时，建议 Release tag 格式：
 
 ```text
-upstream-run-{run_id}
+{version}
 ```
 
-建议 Release 标题格式：
+解析到内部 `.7z` 文件名时，建议 Release 标题格式：
 
 ```text
-BetterGI build {run_id}
+BetterGI {version}
 ```
 
 ### 3.5 本地状态存储
@@ -107,7 +109,7 @@ state/latest.json
   "upstream_repo": "better-genshin-impact",
   "workflow": "publish.yml",
   "artifact_name": "BetterGI_7z",
-  "last_published_version": "upstream-run-28296071177",
+  "last_published_version": "v0.61.3+lcb.22.4-OnLine-test22",
   "last_published_run_id": 28296071177,
   "last_published_artifact_id": 7926519828,
   "last_published_at": "2026-06-28T00:00:00Z"
@@ -124,18 +126,20 @@ state/latest.json
 
 在当前仓库创建 GitHub Release：
 
-- Tag：`upstream-run-{run_id}`
-- Release 名称：`BetterGI build {run_id}`
+- Tag：`{version}`，例如 `v0.61.3+lcb.22.4-OnLine-test22`
+- Release 名称：`BetterGI {version}`
 - Release 说明需包含：
   - 上游仓库链接
   - 上游 workflow run 链接
   - Artifact ID
+  - BetterGI 版本号
+  - Release 资产文件名
   - 上游 commit SHA
   - 同步时间
 
 Release 资产：
 
-- 上传下载得到的 `BetterGI_7z-{version}.zip`
+- 上传从 `BetterGI_7z.zip` 中解压得到的 `BetterGI_*.7z`
 
 如果同名 Release 或 Tag 已存在：
 
@@ -213,10 +217,11 @@ bgi-release-sync/
 1. `gh api` 查询上游 workflow runs。
 2. `gh api` 查询目标 run 的 artifacts。
 3. 使用 nightly.link 的指定 run 链接下载 Artifact，避免直接请求 GitHub Artifact ZIP API。
-4. `gh release create` 创建 Release。
-5. `gh release upload` 上传资产。
-6. 使用脚本更新 `state/latest.json`。
-7. 将状态文件提交回仓库。
+4. 解压 Artifact zip，识别 `BetterGI_*.7z` 发布包和版本号。
+5. `gh release create` 创建 Release。
+6. `gh release upload` 上传资产。
+7. 使用脚本更新 `state/latest.json`。
+8. 将状态文件提交回仓库。
 
 状态文件提交建议：
 
@@ -267,7 +272,7 @@ concurrency:
 2. GitHub Actions 可每 1 小时自动运行一次。
 3. 手动触发 Actions 后可完成一次检测。
 4. 当上游最新成功构建包含 `BetterGI_7z` 且未发布过时，本仓库生成新的 Release。
-5. Release 中包含下载到的 `BetterGI_7z` 压缩包。
+5. Release 中包含从 `BetterGI_7z.zip` 解压得到的 `BetterGI_*.7z` 发布包。
 6. `state/latest.json` 记录最新已发布版本。
 7. 重复运行不会重复发布同一个上游构建。
 
