@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -10,10 +11,15 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from pathlib import Path
 
 
 GITHUB_DIRECT = "https://github.com"
 USER_AGENT = "bgi-release-sync-mirror-benchmark/1.0"
+DOWNLOAD_SCRIPT_NAMES = (
+    "download-latest-bettergi.sh",
+    "download-latest-bettergi.ps1",
+)
 
 DEFAULT_FEED_MIRRORS = [
     "https://github.com",
@@ -330,6 +336,68 @@ def read_mirror_file(path):
     return mirrors
 
 
+def format_shell_asset_mirrors(mirrors):
+    lines = ["GITHUB_ASSET_MIRRORS=("]
+    lines.extend(f'  "{mirror}"' for mirror in mirrors)
+    lines.append(")")
+    return "\n".join(lines)
+
+
+def format_powershell_asset_mirrors(mirrors):
+    lines = ["$DefaultAssetMirrors = @("]
+    for index, mirror in enumerate(mirrors):
+        suffix = "," if index < len(mirrors) - 1 else ""
+        lines.append(f'    "{mirror}"{suffix}')
+    lines.append(")")
+    return "\n".join(lines)
+
+
+def replace_block(text, pattern, replacement, path):
+    new_text, count = re.subn(pattern, replacement, text, count=1, flags=re.DOTALL)
+    if count != 1:
+        raise ValueError(f"Could not find asset mirror block in {path}")
+    return new_text
+
+
+def update_download_script(path, mirrors):
+    path = Path(path)
+    text = path.read_text(encoding="utf-8")
+    suffix = path.suffix.lower()
+
+    if suffix == ".sh":
+        replacement = format_shell_asset_mirrors(mirrors)
+        pattern = r"GITHUB_ASSET_MIRRORS=\(\n.*?\n\)"
+    elif suffix == ".ps1":
+        replacement = format_powershell_asset_mirrors(mirrors)
+        pattern = r"\$DefaultAssetMirrors = @\(\n.*?\n\)"
+    else:
+        raise ValueError(f"Unsupported download script type: {path}")
+
+    new_text = replace_block(text, pattern, replacement, path)
+    if new_text == text:
+        log(f"No mirror order changes needed in {path}")
+        return False
+
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(new_text)
+    log(f"Updated asset mirror order in {path}")
+    return True
+
+
+def default_download_script_paths():
+    script_dir = Path(__file__).resolve().parent
+    return [script_dir / name for name in DOWNLOAD_SCRIPT_NAMES]
+
+
+def write_download_scripts(results, paths):
+    mirrors = [result.mirror for result in results]
+    updated = []
+    for path in paths:
+        if update_download_script(path, mirrors):
+            updated.append(str(path))
+    return updated
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         description=(
@@ -353,6 +421,20 @@ def build_parser():
     parser.add_argument("--chunk-kib", type=int, default=256, help="Read chunk size in KiB.")
     parser.add_argument("--rounds", type=int, default=1, help="Rounds per mirror; the best throughput is kept.")
     parser.add_argument("--workers", type=int, default=8, help="Concurrent mirror tests.")
+    parser.add_argument(
+        "--write-download-scripts",
+        action="store_true",
+        help="Write the sorted asset mirror list back into download-latest-bettergi.sh and .ps1.",
+    )
+    parser.add_argument(
+        "--download-script",
+        action="append",
+        dest="download_scripts",
+        help=(
+            "Download script path to update when --write-download-scripts is set. "
+            "May be passed more than once. Defaults to scripts/download-latest-bettergi.sh and .ps1."
+        ),
+    )
     parser.add_argument(
         "--format",
         choices=("table", "list", "env", "bash", "powershell", "json"),
@@ -420,7 +502,12 @@ def main():
             else:
                 log(f"{result.mirror}: failed ({result.error})")
 
-    print_output(order_results(results), original_url, args.format)
+    ordered_results = order_results(results)
+    if args.write_download_scripts:
+        script_paths = args.download_scripts or default_download_script_paths()
+        write_download_scripts(ordered_results, script_paths)
+
+    print_output(ordered_results, original_url, args.format)
 
 
 if __name__ == "__main__":

@@ -88,10 +88,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\download-latest-bettergi.ps1 
 python .\scripts\benchmark-github-mirrors.py --sample-mib 4 --format powershell
 ```
 
+测速后直接把排序结果写回下载脚本：
+
+```powershell
+python .\scripts\benchmark-github-mirrors.py --sample-mib 4 --write-download-scripts
+```
+
 也可以从 `cmd.exe` 调用包装脚本：
 
 ```cmd
-scripts\benchmark-github-mirrors.cmd --sample-mib 4 --format env
+scripts\benchmark-github-mirrors.cmd --sample-mib 4 --write-download-scripts
 ```
 
 输出的 `BGI_ASSET_MIRRORS` 可直接用于下载脚本：
