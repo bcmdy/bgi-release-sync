@@ -57,3 +57,25 @@ BGI_FEED_MIRRORS="https://gh.jasonzeng.dev/https://github.com https://github.com
 BGI_ASSET_MIRRORS="https://gh.sevencdn.com/https://github.com https://gh.jasonzeng.dev/https://github.com" \
 ./download-latest-bettergi.sh -d /opt/bettergi
 ```
+
+## Windows 下载最新发布包
+
+Windows 10/11 可直接使用自带 PowerShell：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\download-latest-bettergi.ps1 -Dir C:\BetterGI
+```
+
+也可以从 `cmd.exe` 调用包装脚本：
+
+```cmd
+scripts\download-latest-bettergi.cmd -Dir C:\BetterGI
+```
+
+脚本参数与 Ubuntu 版本保持一致：默认读取 `bcmdy/bgi-release-sync` 的最新 Release，按 `BetterGI_{tag}.7z` 规则下载到指定目录；如果文件已存在则跳过，使用 `-Force` 可覆盖。镜像和超时配置同样支持环境变量，例如：
+
+```powershell
+$env:BGI_TEST_TIMEOUT = "8"
+$env:BGI_ASSET_MIRRORS = "https://gh.sevencdn.com/https://github.com https://github.com"
+powershell -ExecutionPolicy Bypass -File .\scripts\download-latest-bettergi.ps1 -Dir C:\BetterGI -Force
+```
