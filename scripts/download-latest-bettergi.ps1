@@ -22,10 +22,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $DefaultFeedMirrors = @(
+    "https://github.com",
     "https://gh.jasonzeng.dev/https://github.com",
     "https://cdn.crashmc.com/https://github.com",
     "https://gh.idayer.com/https://github.com",
-    "https://github.com",
     "https://gh.sevencdn.com/https://github.com",
     "https://edgeone.gh-proxy.org/https://github.com",
     "https://cdn.gh-proxy.org/https://github.com",
@@ -43,12 +43,12 @@ $DefaultFeedMirrors = @(
 )
 
 $DefaultAssetMirrors = @(
+    "https://github.com",
     "https://gh.jasonzeng.dev/https://github.com",
     "https://edgeone.gh-proxy.org/https://github.com",
     "https://cdn.gh-proxy.org/https://github.com",
     "https://gh-proxy.org/https://github.com",
     "https://cdn.crashmc.com/https://github.com",
-    "https://github.com",
     "https://github.ednovas.xyz/https://github.com",
     "https://gh.idayer.com/https://github.com",
     "https://gh.monlor.com/https://github.com",
@@ -97,6 +97,19 @@ function Split-MirrorList {
     }
 
     return @($Value -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function Move-GitHubFirst {
+    param([string[]]$Mirrors)
+
+    $result = @("https://github.com")
+    foreach ($mirror in $Mirrors) {
+        if (-not [string]::IsNullOrWhiteSpace($mirror) -and $mirror -ne "https://github.com") {
+            $result += $mirror
+        }
+    }
+
+    return $result
 }
 
 function Get-GitHubMirrorUrl {
@@ -274,6 +287,8 @@ $feedMirrors = Split-MirrorList -Value $env:BGI_GITHUB_MIRRORS -Default $Default
 $assetMirrors = Split-MirrorList -Value $env:BGI_GITHUB_MIRRORS -Default $DefaultAssetMirrors
 $feedMirrors = Split-MirrorList -Value $env:BGI_FEED_MIRRORS -Default $feedMirrors
 $assetMirrors = Split-MirrorList -Value $env:BGI_ASSET_MIRRORS -Default $assetMirrors
+$feedMirrors = Move-GitHubFirst -Mirrors $feedMirrors
+$assetMirrors = Move-GitHubFirst -Mirrors $assetMirrors
 
 if ([string]::IsNullOrWhiteSpace($AtomUrl)) {
     $AtomUrl = "https://github.com/$Repo/releases.atom"

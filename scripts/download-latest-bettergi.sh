@@ -10,10 +10,10 @@ TEST_TIMEOUT="${BGI_TEST_TIMEOUT:-20}"
 DOWNLOAD_TIMEOUT="${BGI_DOWNLOAD_TIMEOUT:-0}"
 
 GITHUB_FEED_MIRRORS=(
+  "https://github.com"
   "https://gh.jasonzeng.dev/https://github.com"
   "https://cdn.crashmc.com/https://github.com"
   "https://gh.idayer.com/https://github.com"
-  "https://github.com"
   "https://gh.sevencdn.com/https://github.com"
   "https://edgeone.gh-proxy.org/https://github.com"
   "https://cdn.gh-proxy.org/https://github.com"
@@ -31,12 +31,12 @@ GITHUB_FEED_MIRRORS=(
 )
 
 GITHUB_ASSET_MIRRORS=(
+  "https://github.com"
   "https://gh.jasonzeng.dev/https://github.com"
   "https://edgeone.gh-proxy.org/https://github.com"
   "https://cdn.gh-proxy.org/https://github.com"
   "https://gh-proxy.org/https://github.com"
   "https://cdn.crashmc.com/https://github.com"
-  "https://github.com"
   "https://github.ednovas.xyz/https://github.com"
   "https://gh.idayer.com/https://github.com"
   "https://gh.monlor.com/https://github.com"
@@ -69,6 +69,16 @@ GITHUB_ASSET_MIRRORS=(
   "https://githubfast.com"
 )
 
+move_github_first() {
+  local mirror
+
+  printf '%s\n' "https://github.com"
+  for mirror in "$@"; do
+    [[ -n "$mirror" && "$mirror" != "https://github.com" ]] || continue
+    printf '%s\n' "$mirror"
+  done
+}
+
 if [[ -n "${BGI_GITHUB_MIRRORS:-}" ]]; then
   read -r -a GITHUB_FEED_MIRRORS <<< "$BGI_GITHUB_MIRRORS"
   read -r -a GITHUB_ASSET_MIRRORS <<< "$BGI_GITHUB_MIRRORS"
@@ -79,6 +89,9 @@ fi
 if [[ -n "${BGI_ASSET_MIRRORS:-}" ]]; then
   read -r -a GITHUB_ASSET_MIRRORS <<< "$BGI_ASSET_MIRRORS"
 fi
+
+mapfile -t GITHUB_FEED_MIRRORS < <(move_github_first "${GITHUB_FEED_MIRRORS[@]}")
+mapfile -t GITHUB_ASSET_MIRRORS < <(move_github_first "${GITHUB_ASSET_MIRRORS[@]}")
 
 usage() {
   cat <<'EOF'

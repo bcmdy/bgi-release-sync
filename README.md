@@ -79,3 +79,30 @@ $env:BGI_TEST_TIMEOUT = "8"
 $env:BGI_ASSET_MIRRORS = "https://gh.sevencdn.com/https://github.com https://github.com"
 powershell -ExecutionPolicy Bypass -File .\scripts\download-latest-bettergi.ps1 -Dir C:\BetterGI -Force
 ```
+
+## 镜像测速排序
+
+如果部分镜像可连接但下载速度很慢，可以用 Python 脚本按实际下载速度重新排序资产镜像。脚本默认测速最新 Release 的 BetterGI 资产，只统计响应体下载吞吐，不把建连和响应头延迟作为排序依据；`https://github.com` 会始终固定在第一位。
+
+```powershell
+python .\scripts\benchmark-github-mirrors.py --sample-mib 4 --format powershell
+```
+
+也可以从 `cmd.exe` 调用包装脚本：
+
+```cmd
+scripts\benchmark-github-mirrors.cmd --sample-mib 4 --format env
+```
+
+输出的 `BGI_ASSET_MIRRORS` 可直接用于下载脚本：
+
+```powershell
+$env:BGI_ASSET_MIRRORS = "https://github.com https://某个高速镜像/https://github.com ..."
+powershell -ExecutionPolicy Bypass -File .\scripts\download-latest-bettergi.ps1 -Dir C:\BetterGI
+```
+
+如需测试指定资产地址：
+
+```powershell
+python .\scripts\benchmark-github-mirrors.py --url "https://github.com/bcmdy/bgi-release-sync/releases/download/v0.61.3+lcb.22.4-OnLine-test23/BetterGI_v0.61.3+lcb.22.4-OnLine-test23.7z"
+```
