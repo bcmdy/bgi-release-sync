@@ -4,7 +4,7 @@
   "workflow": "publish.yml",
   "artifact_name": "BetterGI_7z",
   "last_published_version": "v0.66.2+lcb.22.9-NexusBGI-fix4",
-  "last_published_run_id": 38498562718,
-  "last_published_artifact_id": 11864962646,
-  "last_published_at": "2026-10-14T06:07:19Z"
+  "last_published_run_id": 38534722906,
+  "last_published_artifact_id": 11878898872,
+  "last_published_at": "2026-10-14T11:44:33Z"
 }
