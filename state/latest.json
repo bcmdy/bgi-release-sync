@@ -3,8 +3,8 @@
   "upstream_repo": "better-genshin-impact",
   "workflow": "publish.yml",
   "artifact_name": "BetterGI_7z",
-  "last_published_version": "v0.67.2+lcb.23.2-NexusBGI",
-  "last_published_run_id": 44700636948,
-  "last_published_artifact_id": 14613246009,
-  "last_published_at": "2026-11-20T17:14:38Z"
+  "last_published_version": "v0.67.2+lcb.23.2-NexusBGI-fix1",
+  "last_published_run_id": 45016556300,
+  "last_published_artifact_id": 14751689359,
+  "last_published_at": "2026-11-22T15:39:47Z"
 }
